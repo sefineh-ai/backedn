@@ -4,9 +4,9 @@ A production-ready backend for a Job Board platform built with FastAPI, Pydantic
 
 ## 🎯 Overview
 
-- **Purpose**: Manage users, jobs, and applications with clear layering and testability.
-- **Principles**: Clean Architecture, SOLID, Repository/Service patterns, high cohesion, low coupling.
-- **Status**: API v1 stable; suitable as a foundation for enterprise deployments.
+- Purpose: Manage users, jobs, and applications with clear layering and testability.
+- Principles: Clean Architecture, SOLID, Repository/Service patterns, high cohesion, low coupling.
+- Status: API v1 stable; suitable as a foundation for enterprise deployments.
 
 ## 🏗 Architecture
 
@@ -14,32 +14,32 @@ A production-ready backend for a Job Board platform built with FastAPI, Pydantic
 
 ```mermaid
 graph TD
-  A[Clients (Web/Mobile/3rd-party)] --> B[Interfaces Layer (FastAPI Routers)]
-  B --> C[Application Layer (Services, Schemas, Use-Cases)]
-  C --> D[Domain Layer (Entities, Business Rules)]
-  C --> E[Infrastructure Layer (Repositories, DB, Integrations)]
-  E --> F[(PostgreSQL/SQLite)]
-  E --> G[(Redis)]
+  A["Clients"] --> B["Interfaces: FastAPI Routers"]
+  B --> C["Application: Services, Schemas, Use-Cases"]
+  C --> D["Domain: Entities, Rules"]
+  C --> E["Infrastructure: Repositories, DB, Integrations"]
+  E --> F["PostgreSQL"]
+  E --> G["Redis"]
 ```
 
-- **Interfaces**: `app/interfaces/api/v1` (routers, request mapping)
-- **Application**: `app/application` (services, schemas, orchestration)
-- **Domain**: `app/domain` (entities + business rules)
-- **Infrastructure**: `app/infrastructure` (ORM models, repositories, DB config)
+- Interfaces: `app/interfaces/api/v1` (routers, request mapping)
+- Application: `app/application` (services, schemas, orchestration)
+- Domain: `app/domain` (entities + business rules)
+- Infrastructure: `app/infrastructure` (ORM models, repositories, DB config)
 
 ### Request Lifecycle
 
 ```mermaid
 sequenceDiagram
-  participant C as Client
-  participant R as FastAPI Router
-  participant S as Service (Application)
-  participant Repo as Repository (Infrastructure)
-  participant DB as Database
+  participant C as "Client"
+  participant R as "FastAPI Router"
+  participant S as "Service (Application)"
+  participant Repo as "Repository (Infrastructure)"
+  participant DB as "PostgreSQL"
 
-  C->>R: HTTP request /api/v1/... (JWT optional)
+  C->>R: HTTP /api/v1/... (JWT optional)
   R->>S: Validate via Pydantic Schemas
-  S->>Repo: Perform use-case
+  S->>Repo: Execute use-case
   Repo->>DB: SQLAlchemy CRUD
   DB-->>Repo: Rows
   Repo-->>S: Domain objects/DTO
@@ -63,8 +63,8 @@ erDiagram
     enum role
     boolean is_active
     boolean is_verified
-    datetime created_at
-    datetime updated_at
+    timestamp created_at
+    timestamp updated_at
   }
 
   JOBS {
@@ -74,8 +74,8 @@ erDiagram
     string location
     enum status
     uuid created_by FK
-    datetime created_at
-    datetime updated_at
+    timestamp created_at
+    timestamp updated_at
   }
 
   APPLICATIONS {
@@ -85,8 +85,8 @@ erDiagram
     string resume_link
     text cover_letter
     enum status
-    datetime applied_at
-    datetime updated_at
+    timestamp applied_at
+    timestamp updated_at
   }
 ```
 
@@ -94,10 +94,10 @@ erDiagram
 
 ```mermaid
 graph LR
-  Dev[Developer] -->|docker-compose up| API[FastAPI App]
-  API -->|SQLAlchemy| PG[(PostgreSQL)]
-  API -->|Cache/Queues (optional)| REDIS[(Redis)]
-  API -->|Health/Tracing (optional)| Sentry[Sentry]
+  Dev["Developer"] -->|"docker-compose up"| API["FastAPI App"]
+  API -->|"SQLAlchemy"| PG["PostgreSQL (eskalate)"]
+  API -->|"Cache/Queues (optional)"| REDIS["Redis"]
+  API -->|"Health/Tracing (optional)"| Sentry["Sentry"]
 ```
 
 ## 📁 Repository Structure
@@ -118,21 +118,15 @@ tests/
 
 ## 🛠 Technology Stack
 
-- **Framework**: FastAPI `0.104.1` on Starlette
-- **Language**: Python 3.11+ (tested with 3.12)
-- **ORM**: SQLAlchemy `2.0.x`
-- **Validation**: Pydantic `2.x`
-- **Auth**: JWT (python-jose), bcrypt hashing
-- **Runtime**: Uvicorn
-- **DevOps**: Docker, docker-compose
-- **Quality**: black, isort, flake8, mypy, pytest, coverage
-- **Optional**: Redis cache/queues, Sentry
-
-## 📋 Prerequisites
-
-- Python 3.11+ (recommended 3.12)
-- pip
-- Docker & docker-compose (for containerized runs)
+- Framework: FastAPI 0.104.1 on Starlette
+- Language: Python 3.11+ (tested with 3.12)
+- ORM: SQLAlchemy 2.0.x
+- Validation: Pydantic 2.x
+- Auth: JWT (python-jose), bcrypt hashing
+- Runtime: Uvicorn
+- DevOps: Docker, docker-compose
+- Quality: black, isort, flake8, mypy, pytest, coverage
+- Optional: Redis cache/queues, Sentry
 
 ## ⚙️ Configuration
 
@@ -146,8 +140,9 @@ DEBUG=true
 HOST=0.0.0.0
 PORT=8000
 
-# Database
-DATABASE_URL=sqlite:///./enterprise_backend.db
+# Database (PostgreSQL)
+# Format: postgresql://USER:PASSWORD@HOST:PORT/DBNAME
+DATABASE_URL=postgresql://postgres:password@localhost:5432/eskalate
 DATABASE_ECHO=false
 
 # Redis (optional)
@@ -176,9 +171,37 @@ SENTRY_DSN=
 LOG_LEVEL=INFO
 ```
 
-## 🚀 Run Locally
+## 🚀 Run
 
-### Virtualenv
+### Docker Compose (recommended)
+
+```bash
+docker-compose up --build
+```
+
+This starts:
+- app: FastAPI server (http://localhost:8000)
+- db: PostgreSQL 15 with database `eskalate`
+- redis: Redis 7
+
+Compose expects these service envs (already present in `docker-compose.yml`):
+
+```yaml
+services:
+  app:
+    environment:
+      - DATABASE_URL=postgresql://postgres:password@db:5432/eskalate
+      - REDIS_URL=redis://redis:6379
+      - SECRET_KEY=your-secret-key-here
+      - DEBUG=true
+  db:
+    environment:
+      - POSTGRES_DB=eskalate
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+```
+
+### Virtualenv (local dev)
 
 ```bash
 python -m venv venv
@@ -187,30 +210,9 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-- Docs: `http://localhost:8000/docs`
-- ReDoc: `http://localhost:8000/redoc`
-- Health: `http://localhost:8000/health`
-
-### Docker
-
-```bash
-# Build
-docker build -t job-board-api .
-
-# Run
-docker run -p 8000:8000 --env-file .env job-board-api
-```
-
-### Docker Compose
-
-```bash
-docker-compose up --build
-```
-
-This starts:
-- `app`: FastAPI server (`http://localhost:8000`)
-- `db`: PostgreSQL 15
-- `redis`: Redis 7
+- Docs: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
+- Health: http://localhost:8000/health
 
 ## 🔐 Security
 
@@ -246,39 +248,32 @@ mypy app/
 
 ## 🗄 Database
 
-- Development defaults to SQLite; production should use PostgreSQL.
-- SQLAlchemy engine is configured in `app/infrastructure/database/base.py`.
-- Table creation happens on startup via `DatabaseManager.create_tables()`.
-- For long-lived environments, consider migrations with Alembic.
+- Primary database: PostgreSQL (`eskalate`).
+- SQLAlchemy engine configured in `app/infrastructure/database/base.py`.
+- Tables are created on startup via `DatabaseManager.create_tables()`.
+- For production, manage schema with Alembic migrations.
 
-### Migrations (Alembic) – optional
+### Migrations (Alembic)
 
 ```bash
 alembic init migrations
-# Configure sqlalchemy.url in alembic.ini and target_meta in env.py
+# Configure sqlalchemy.url in alembic.ini to your DATABASE_URL
 alembic revision -m "init"
 alembic upgrade head
 ```
 
 ## 📦 Deployment
 
-- Containerized via Docker; healthcheck at `/health`.
-- Use `docker-compose.yml` for app + Postgres + Redis.
-- For cloud deploys, set `SECRET_KEY`, `DATABASE_URL`, and CORS appropriately.
-- Run with multiple workers behind a reverse proxy (e.g., `gunicorn -k uvicorn.workers.UvicornWorker`).
+- Containerized via Docker; healthcheck at `/health` (Dockerfile installs `curl`).
+- Use `docker-compose.yml` for app + PostgreSQL (`eskalate`) + Redis.
+- Set `SECRET_KEY`, `DATABASE_URL`, and CORS appropriately per environment.
+- Run behind a reverse proxy with multiple workers (e.g., `gunicorn -k uvicorn.workers.UvicornWorker`).
 
 ## 🔭 Observability
 
-- Structured logging via `LOG_LEVEL` (extend with `structlog` if desired)
-- Optional Sentry via `SENTRY_DSN`
-- Add metrics endpoints or Prometheus client as needed
-
-## 🚧 Roadmap (suggested)
-
-- Refresh tokens and role-based authorization middleware
-- Background jobs (email sending, indexing) using Redis/Celery
-- Rate limiting and API keys for 3rd-party integrations
-- Multi-tenant support and audit logging
+- Structured logging via `LOG_LEVEL` (optionally extend with `structlog`).
+- Optional Sentry via `SENTRY_DSN`.
+- Add metrics endpoints or Prometheus client as needed.
 
 ## 🤝 Contributing
 
@@ -290,4 +285,4 @@ alembic upgrade head
 
 ## 📝 License
 
-MIT (or your chosen license) 
+MIT (or your chosen license)
