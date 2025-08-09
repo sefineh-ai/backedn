@@ -142,7 +142,7 @@ PORT=8000
 
 # Database (PostgreSQL)
 # Format: postgresql://USER:PASSWORD@HOST:PORT/DBNAME
-DATABASE_URL=postgresql://postgres:password@localhost:5432/eskalate
+DATABASE_URL=postgresql://eskalate_yidj_user:vmuaqF4Me66nZmpKl23OSQmVaLT928L4@dpg-d2bht7idbo4c73arsao0-a/eskalate_yidj
 DATABASE_ECHO=false
 
 # Redis (optional)
