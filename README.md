@@ -1,425 +1,293 @@
-# Job Board API
+# Enterprise Job Board API (FastAPI, Clean Architecture)
 
-A comprehensive RESTful API for job board management built with FastAPI, following enterprise-level design patterns, SOLID principles, and clean architecture.
+A production-ready backend for a Job Board platform built with FastAPI, Pydantic, and SQLAlchemy, following Clean Architecture and SOLID principles. Includes JWT auth, RBAC-ready structure, Docker/Compose, and testing.
 
-## 🎯 Project Overview
+## 🎯 Overview
 
-This API enables companies to post and manage job listings while allowing applicants to browse jobs, submit applications, and track their application status. The system implements role-based access control, authentication, authorization, and comprehensive business logic.
+- **Purpose**: Manage users, jobs, and applications with clear layering and testability.
+- **Principles**: Clean Architecture, SOLID, Repository/Service patterns, high cohesion, low coupling.
+- **Status**: API v1 stable; suitable as a foundation for enterprise deployments.
 
-## 🏗️ Architecture
+## 🏗 Architecture
 
-### Clean Architecture Layers
+### Layered Architecture
 
-1. **Domain Layer** (`app/domain/`)
-   - Entities: `User`, `Job`, `Application`
-   - Value objects and domain logic
-   - Business rules and validations
+```mermaid
+graph TD
+  A[Clients (Web/Mobile/3rd-party)] --> B[Interfaces Layer (FastAPI Routers)]
+  B --> C[Application Layer (Services, Schemas, Use-Cases)]
+  C --> D[Domain Layer (Entities, Business Rules)]
+  C --> E[Infrastructure Layer (Repositories, DB, Integrations)]
+  E --> F[(PostgreSQL/SQLite)]
+  E --> G[(Redis)]
+```
 
-2. **Application Layer** (`app/application/`)
-   - Services: Business logic orchestration
-   - Schemas: Request/response models
-   - Use cases and application logic
+- **Interfaces**: `app/interfaces/api/v1` (routers, request mapping)
+- **Application**: `app/application` (services, schemas, orchestration)
+- **Domain**: `app/domain` (entities + business rules)
+- **Infrastructure**: `app/infrastructure` (ORM models, repositories, DB config)
 
-3. **Infrastructure Layer** (`app/infrastructure/`)
-   - Database models and repositories
-   - External service integrations
-   - Data persistence implementations
+### Request Lifecycle
 
-4. **Interface Layer** (`app/interfaces/`)
-   - API endpoints and controllers
-   - Authentication and authorization
-   - Request/response handling
+```mermaid
+sequenceDiagram
+  participant C as Client
+  participant R as FastAPI Router
+  participant S as Service (Application)
+  participant Repo as Repository (Infrastructure)
+  participant DB as Database
 
-### Design Patterns Implemented
+  C->>R: HTTP request /api/v1/... (JWT optional)
+  R->>S: Validate via Pydantic Schemas
+  S->>Repo: Perform use-case
+  Repo->>DB: SQLAlchemy CRUD
+  DB-->>Repo: Rows
+  Repo-->>S: Domain objects/DTO
+  S-->>R: Response model
+  R-->>C: JSON response
+```
 
-- **Repository Pattern**: Data access abstraction
-- **Service Pattern**: Business logic encapsulation
-- **Factory Pattern**: Object creation
-- **Strategy Pattern**: Algorithm selection
-- **Observer Pattern**: Event handling
-- **Singleton Pattern**: Database manager
-- **Dependency Injection**: Service composition
+### Data Model (High-level)
 
-### SOLID Principles
+```mermaid
+erDiagram
+  USERS ||--o{ JOBS : "created_by"
+  USERS ||--o{ APPLICATIONS : "applicant"
+  JOBS ||--o{ APPLICATIONS : "applied_to"
 
-- **Single Responsibility**: Each class has one reason to change
-- **Open/Closed**: Open for extension, closed for modification
-- **Liskov Substitution**: Subtypes are substitutable
-- **Interface Segregation**: Client-specific interfaces
-- **Dependency Inversion**: High-level modules don't depend on low-level modules
+  USERS {
+    uuid id PK
+    string full_name
+    string email
+    string hashed_password
+    enum role
+    boolean is_active
+    boolean is_verified
+    datetime created_at
+    datetime updated_at
+  }
 
-## 🚀 Features
+  JOBS {
+    uuid id PK
+    string title
+    string description
+    string location
+    enum status
+    uuid created_by FK
+    datetime created_at
+    datetime updated_at
+  }
 
-### User Management
-- ✅ User registration (Company/Applicant roles)
-- ✅ Email verification (token-based)
-- ✅ User authentication (JWT)
-- ✅ Password hashing (bcrypt)
-- ✅ Role-based access control
+  APPLICATIONS {
+    uuid id PK
+    uuid applicant_id FK
+    uuid job_id FK
+    string resume_link
+    text cover_letter
+    enum status
+    datetime applied_at
+    datetime updated_at
+  }
+```
 
-### Job Management
-- ✅ Create jobs (Company only)
-- ✅ Update/delete jobs (Owner only)
-- ✅ Job status management (Draft → Open → Closed)
-- ✅ Job search and filtering
-- ✅ Pagination support
+### Deployment Topology
 
-### Application Management
-- ✅ Submit applications (Applicant only)
-- ✅ Track application status
-- ✅ Update application status (Company only)
-- ✅ Application filtering and sorting
-- ✅ Resume upload support (Cloudinary)
+```mermaid
+graph LR
+  Dev[Developer] -->|docker-compose up| API[FastAPI App]
+  API -->|SQLAlchemy| PG[(PostgreSQL)]
+  API -->|Cache/Queues (optional)| REDIS[(Redis)]
+  API -->|Health/Tracing (optional)| Sentry[Sentry]
+```
 
-### Security Features
-- ✅ JWT authentication
-- ✅ Password hashing with bcrypt
-- ✅ Role-based authorization
-- ✅ Input validation and sanitization
-- ✅ Error handling and logging
+## 📁 Repository Structure
 
-## 🛠️ Technology Stack
+```
+app/
+  core/                # config, security, exceptions, interfaces
+  domain/              # entities and domain rules
+  application/         # services and schemas
+  infrastructure/      # DB, models, repositories
+  interfaces/          # FastAPI routers and API
+  main.py              # app factory and middleware
+Dockerfile
+docker-compose.yml
+requirements.txt
+tests/
+```
 
-- **Framework**: FastAPI 0.104.1
-- **Language**: Python 3.12+
-- **Database**: SQLite (development) / PostgreSQL (production)
-- **ORM**: SQLAlchemy 2.0.23
-- **Authentication**: JWT (python-jose)
-- **Password Hashing**: bcrypt (passlib)
-- **Validation**: Pydantic 2.5.0
-- **Testing**: pytest, pytest-asyncio
-- **Code Quality**: Black, isort, flake8, mypy
-- **Documentation**: Swagger/OpenAPI
+## 🛠 Technology Stack
+
+- **Framework**: FastAPI `0.104.1` on Starlette
+- **Language**: Python 3.11+ (tested with 3.12)
+- **ORM**: SQLAlchemy `2.0.x`
+- **Validation**: Pydantic `2.x`
+- **Auth**: JWT (python-jose), bcrypt hashing
+- **Runtime**: Uvicorn
+- **DevOps**: Docker, docker-compose
+- **Quality**: black, isort, flake8, mypy, pytest, coverage
+- **Optional**: Redis cache/queues, Sentry
 
 ## 📋 Prerequisites
 
-- Python 3.12+
-- pip (Python package manager)
-- Git
+- Python 3.11+ (recommended 3.12)
+- pip
+- Docker & docker-compose (for containerized runs)
 
-## 🚀 Installation & Setup
+## ⚙️ Configuration
 
-### 1. Clone the Repository
-
-```bash
-git clone <repository-url>
-cd job-board-api
-```
-
-### 2. Create Virtual Environment
-
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-### 3. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Environment Configuration
-
-Create a `.env` file in the root directory:
+Settings are managed via Pydantic Settings (`app/core/config.py`). Create `.env` in the project root:
 
 ```env
 # Application
-APP_NAME=Job Board API
+APP_NAME=Enterprise Backend
 APP_VERSION=1.0.0
 DEBUG=true
+HOST=0.0.0.0
+PORT=8000
 
 # Database
-DATABASE_URL=sqlite:///./job_board.db
+DATABASE_URL=sqlite:///./enterprise_backend.db
 DATABASE_ECHO=false
 
+# Redis (optional)
+REDIS_URL=redis://localhost:6379
+
 # Security
-SECRET_KEY=your-secret-key-here-change-in-production
+SECRET_KEY=change-me-in-production
+ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
+REFRESH_TOKEN_EXPIRE_DAYS=7
+PUBLIC_BASE_URL=http://localhost:8000
 
 # CORS
 ALLOWED_ORIGINS=["http://localhost:3000", "http://127.0.0.1:3000"]
 
-# Email (for production)
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASSWORD=your-app-password
+# Email (optional)
+SMTP_HOST=
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASSWORD=
+SMTP_USE_TLS=true
+FROM_EMAIL=no-reply@example.com
 
-# Cloudinary (for file uploads)
-CLOUDINARY_CLOUD_NAME=your-cloud-name
-CLOUDINARY_API_KEY=your-api-key
-CLOUDINARY_API_SECRET=your-api-secret
+# Observability (optional)
+SENTRY_DSN=
+LOG_LEVEL=INFO
 ```
 
-### 5. Run the Application
+## 🚀 Run Locally
+
+### Virtualenv
 
 ```bash
+python -m venv venv
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-The API will be available at:
-- **API Documentation**: http://localhost:8000/docs
-- **ReDoc Documentation**: http://localhost:8000/redoc
-- **Health Check**: http://localhost:8000/health
+- Docs: `http://localhost:8000/docs`
+- ReDoc: `http://localhost:8000/redoc`
+- Health: `http://localhost:8000/health`
 
-## 📚 API Documentation
+### Docker
 
-### Authentication
+```bash
+# Build
+docker build -t job-board-api .
 
-All protected endpoints require JWT authentication. Include the token in the Authorization header:
-
-```
-Authorization: Bearer <your-jwt-token>
-```
-
-### User Endpoints
-
-#### 1. User Registration
-```http
-POST /api/v1/users/signup
-Content-Type: application/json
-
-{
-  "full_name": "John Doe",
-  "email": "john@example.com",
-  "password": "SecurePass123!",
-  "role": "applicant"
-}
+# Run
+docker run -p 8000:8000 --env-file .env job-board-api
 ```
 
-#### 2. User Login
-```http
-POST /api/v1/users/login
-Content-Type: application/json
+### Docker Compose
 
-{
-  "email": "john@example.com",
-  "password": "SecurePass123!"
-}
+```bash
+docker-compose up --build
 ```
 
-#### 3. Get User Profile
-```http
-GET /api/v1/users/{user_id}
-Authorization: Bearer <token>
-```
+This starts:
+- `app`: FastAPI server (`http://localhost:8000`)
+- `db`: PostgreSQL 15
+- `redis`: Redis 7
 
-### Job Endpoints
+## 🔐 Security
 
-#### 1. Create Job (Company Only)
-```http
-POST /api/v1/jobs/
-Authorization: Bearer <token>
-Content-Type: application/json
+- JWT-based auth with configurable expiry and algorithm
+- Bcrypt password hashing
+- CORS policy via settings
+- Trusted hosts middleware
+- Centralized exception handlers
+- Secrets via environment variables
 
-{
-  "title": "Senior Python Developer",
-  "description": "We are looking for an experienced Python developer...",
-  "location": "Remote",
-  "status": "Open"
-}
-```
+## 📚 API Notes
 
-#### 2. Get Jobs (with filters)
-```http
-GET /api/v1/jobs/?title=python&location=remote&page_number=1&page_size=10
-```
-
-#### 3. Get Job Details
-```http
-GET /api/v1/jobs/{job_id}
-```
-
-#### 4. Update Job (Owner Only)
-```http
-PUT /api/v1/jobs/{job_id}
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "title": "Updated Job Title",
-  "status": "Closed"
-}
-```
-
-### Application Endpoints
-
-#### 1. Submit Application (Applicant Only)
-```http
-POST /api/v1/applications/
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "job_id": "123e4567-e89b-12d3-a456-426614174000",
-  "resume_link": "https://cloudinary.com/resume.pdf",
-  "cover_letter": "I am excited to apply for this position..."
-}
-```
-
-#### 2. Get My Applications (Applicant Only)
-```http
-GET /api/v1/applications/my-applications?page_number=1&page_size=10
-Authorization: Bearer <token>
-```
-
-#### 3. Get Job Applications (Company Only)
-```http
-GET /api/v1/applications/job/{job_id}?page_number=1&page_size=10
-Authorization: Bearer <token>
-```
-
-#### 4. Update Application Status (Company Only)
-```http
-PUT /api/v1/applications/{application_id}/status
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "status": "Interview"
-}
-```
+- Base path: `/api/v1`
+- Explore endpoints in Swagger UI at `http://localhost:8000/docs`
+- Authorization header: `Authorization: Bearer <token>`
 
 ## 🧪 Testing
 
-### Run Tests
-
 ```bash
-# Run all tests
-pytest
-
-# Run with coverage
+pytest -q
 pytest --cov=app
-
-# Run specific test file
-pytest tests/test_users.py
-
-# Run with verbose output
-pytest -v
+pytest tests/test_users.py -vv
 ```
 
-### Test Structure
-
-```
-tests/
-├── __init__.py
-├── test_users.py
-├── test_jobs.py
-├── test_applications.py
-└── conftest.py
-```
-
-## 🔧 Development
-
-### Code Quality
+## 🧹 Code Quality
 
 ```bash
-# Format code
 black app/
-
-# Sort imports
 isort app/
-
-# Lint code
 flake8 app/
-
-# Type checking
 mypy app/
 ```
 
-### Pre-commit Hooks
+## 🗄 Database
+
+- Development defaults to SQLite; production should use PostgreSQL.
+- SQLAlchemy engine is configured in `app/infrastructure/database/base.py`.
+- Table creation happens on startup via `DatabaseManager.create_tables()`.
+- For long-lived environments, consider migrations with Alembic.
+
+### Migrations (Alembic) – optional
 
 ```bash
-# Install pre-commit hooks
-pre-commit install
-
-# Run pre-commit on all files
-pre-commit run --all-files
+alembic init migrations
+# Configure sqlalchemy.url in alembic.ini and target_meta in env.py
+alembic revision -m "init"
+alembic upgrade head
 ```
 
-## 📊 Database Schema
+## 📦 Deployment
 
-### Users Table
-- `id` (UUID, Primary Key)
-- `full_name` (String, Required)
-- `email` (String, Unique, Required)
-- `hashed_password` (String)
-- `role` (Enum: applicant/company)
-- `is_active` (Boolean)
-- `is_verified` (Boolean)
-- `created_at` (DateTime)
-- `updated_at` (DateTime)
+- Containerized via Docker; healthcheck at `/health`.
+- Use `docker-compose.yml` for app + Postgres + Redis.
+- For cloud deploys, set `SECRET_KEY`, `DATABASE_URL`, and CORS appropriately.
+- Run with multiple workers behind a reverse proxy (e.g., `gunicorn -k uvicorn.workers.UvicornWorker`).
 
-### Jobs Table
-- `id` (UUID, Primary Key)
-- `title` (String, Required)
-- `description` (String, Required)
-- `location` (String, Optional)
-- `status` (Enum: Draft/Open/Closed)
-- `created_by` (UUID, Foreign Key)
-- `created_at` (DateTime)
-- `updated_at` (DateTime)
+## 🔭 Observability
 
-### Applications Table
-- `id` (UUID, Primary Key)
-- `applicant_id` (UUID, Foreign Key)
-- `job_id` (UUID, Foreign Key)
-- `resume_link` (String, Required)
-- `cover_letter` (Text, Optional)
-- `status` (Enum: Applied/Reviewed/Interview/Rejected/Hired)
-- `applied_at` (DateTime)
-- `updated_at` (DateTime)
+- Structured logging via `LOG_LEVEL` (extend with `structlog` if desired)
+- Optional Sentry via `SENTRY_DSN`
+- Add metrics endpoints or Prometheus client as needed
 
-## 🚀 Deployment
+## 🚧 Roadmap (suggested)
 
-### Docker Deployment
-
-1. Build the image:
-```bash
-docker build -t job-board-api .
-```
-
-2. Run the container:
-```bash
-docker run -p 8000:8000 job-board-api
-```
-
-### Production Considerations
-
-- Use PostgreSQL for production database
-- Configure proper CORS settings
-- Set up email service for notifications
-- Implement rate limiting
-- Use HTTPS in production
-- Configure logging and monitoring
-- Set up CI/CD pipeline
+- Refresh tokens and role-based authorization middleware
+- Background jobs (email sending, indexing) using Redis/Celery
+- Rate limiting and API keys for 3rd-party integrations
+- Multi-tenant support and audit logging
 
 ## 🤝 Contributing
 
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
+1. Fork & clone
+2. Create a feature branch
+3. Add tests and ensure `pytest` passes
+4. Run formatters and linters
 5. Open a Pull Request
 
-## 📄 License
+## 📝 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🆘 Support
-
-For support and questions:
-- Create an issue in the repository
-- Contact the development team
-- Check the API documentation at `/docs`
-
-## 🔄 Version History
-
-- **v1.0.0** - Initial release with core functionality
-  - User management (registration, authentication)
-  - Job management (CRUD operations)
-  - Application management
-  - Role-based access control
-  - JWT authentication
-  - Comprehensive API documentation 
+MIT (or your chosen license) 
